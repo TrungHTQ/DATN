@@ -1,15 +1,18 @@
-#pragma once
-#include <Arduino.h>
-#include <HardwareSerial.h>
+#ifndef MODULE4G_H
+#define MODULE4G_H
 
-class Internet_4G {
-public:
-    Internet_4G(HardwareSerial &port = Serial1) : _port(port) {}
-    void set_Begin(int rxPin, int txPin, uint32_t baud = 115200);
-    void setup4G();
-    void check4G();
-    void sendAndPrint(const char* cmd);
-private:
-    HardwareSerial &_port;
-    void flushInput();
-};
+#include <Arduino.h>
+#define TINY_GSM_MODEM_SIM7600
+#include <TinyGsmClient.h>
+#include <PubSubClient.h>
+
+extern TinyGsm modem;
+extern TinyGsmClient client;
+extern PubSubClient mqtt;
+
+bool FourG_init(const char* apn);
+bool MQTT_init(const char* broker, const char* clientID);
+bool MQTT_publish(const char* topic, const char* payload);
+void FourG_loop();   // để xử lý mqtt.loop()
+
+#endif

@@ -50,3 +50,16 @@ int SensorPH::readRawADC() {
 bool SensorPH::isInitialized() const {
     return initialized;
 }
+
+    // float rawPH = phSensor.readPH();
+    // float filteredPH = filter.addReading(rawPH);
+
+    // Serial.printf("Raw pH: %.2f | Filtered pH: %.2f\n", rawPH, filteredPH);
+
+    // if (filteredPH < 6.5) {
+    //     Serial.println("📊 ACIDIC");
+    // } else if (filteredPH > 7.5) {
+    //     Serial.println("📊 BASIC");
+    // } else {
+    //     Serial.println("📊 NEUTRAL");
+    // }

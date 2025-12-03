@@ -1,39 +1,75 @@
+#define TINY_GSM_MODEM_SIM7600
 #include "4G.h"
+#include <TinyGsmClient.h>
+#include <PubSubClient.h>
 
-void Internet_4G::set_Begin(int rxPin, int txPin, uint32_t baud) {
-    _port.begin(baud, SERIAL_8N1, rxPin, txPin);
+HardwareSerial SerialAT(1);
+TinyGsm modem(SerialAT);
+TinyGsmClient client(modem);
+PubSubClient mqtt(client);
+
+static const char* mqttClientID = nullptr;
+
+bool FourG_init(const char* apn)
+{
+    Serial.println("[4G] Khởi động SerialAT...");
+    SerialAT.begin(115200, SERIAL_8N1, 18, 17);
     delay(3000);
-}
-void Internet_4G::flushInput() { while (_port.available()) _port.read(); }
-void Internet_4G::setup4G() {
-    flushInput();
-    _port.println("AT");
-}
 
-void Internet_4G::sendAndPrint(const char* cmd) {
-    _port.println(cmd);
-    Serial.print("> ");
-    Serial.println(cmd);
-
-    delay(1200);
-
-    while (_port.available()) {
-        String resp = _port.readStringUntil('\n');
-        resp.trim();
-        if (resp.length() > 0)
-            Serial.println(resp);
+    // Lặp đến khi restart modem thành công
+    while (!modem.restart()) {
+        Serial.println("[4G] ❌ Restart thất bại! Đang thử lại...");
+        delay(2000);
     }
+
+    Serial.println("[4G] Chờ mạng...");
+    while (!modem.waitForNetwork(10000)) {
+        Serial.println("[4G] ❌ Không tìm thấy mạng! Đang thử lại...");
+        delay(2000);
+    }
+
+    Serial.println("[4G] Đã lên sóng!");
+
+    Serial.println("[4G] Kết nối GPRS...");
+    while (!modem.gprsConnect(apn)) {
+        Serial.println("[4G] ❌ Không kết nối GPRS! Đang thử lại...");
+        delay(2000);
+    }
+
+    Serial.println("[4G] ✔ GPRS OK!");
+    return true;
 }
-void Internet_4G::check4G() {
-    Serial.println("\n===== Kiểm tra 4G A7670C =====");
 
-    flushInput();   // chỉ dùng 1 lần duy nhất
+bool MQTT_init(const char* broker, const char* clientID)
+{
+    mqtt.setServer(broker, 1883);
+    mqttClientID = clientID;
 
-    sendAndPrint("AT+CPIN?");
-    sendAndPrint("AT+CEREG?");
-    sendAndPrint("AT+CSQ");
-    sendAndPrint("AT+CGATT?");
-    sendAndPrint("AT+CGPADDR");
+    Serial.println("[MQTT] Kết nối MQTT...");
+    // Lặp đến khi kết nối MQTT thành công
+    while (!mqtt.connect(clientID)) {
+        Serial.println("[MQTT] ❌ Kết nối thất bại! Đang thử lại...");
+        delay(2000);
+    }
 
-    Serial.println("===== Kiểm tra xong =====");
+    Serial.println("[MQTT] ✔ MQTT Connected!");
+    return true;
+}
+
+bool MQTT_publish(const char* topic, const char* payload)
+{
+    if (!mqtt.connected()) {
+        Serial.println("[MQTT] Mất kết nối → thử reconnect...");
+        while (!mqtt.connect(mqttClientID)) {
+            Serial.println("[MQTT] ❌ Reconnect thất bại! Đang thử lại...");
+            delay(2000);
+        }
+    }
+
+    return mqtt.publish(topic, payload);
+}
+
+void FourG_loop()
+{
+    mqtt.loop();
 }
